@@ -1,16 +1,13 @@
+-- get only US locations for efficiency
 create table location_us as 
 select id,state from location 
 where country="US" and state is not null;
 
+-- get patents published in US
 create table patent_us as
 select id,type,date from patent;
 
-create table patent_citations as 
-select citation_id as patent_id, count(*) as total_citations from citation
-group by citation_id
-order by total_citations desc;
-
-
+-- get the total citations of a patent 5 years after publishment
 create view pc1 AS select c.patent_id as citer_id,c.citation_id as patent_id,c.date as patent_date, p.date as citation_date  from 
 citation c inner join patent_us p on c.patent_id=p.id;
 
@@ -19,16 +16,12 @@ where (JULIANDAY(citation_date)-JULIANDAY(patent_date))/365.25 < 5
 group by patent_id
 order by total_citations desc;
 
-
-
-
+-- join patent and inventor tables to get the total citations of the patents of inventors
 create table merged as
 select pi.patent_id,pi.inventor_id,pi.location_id,p.date,l.state,pc.total_citations,p.type
 from patent_inventor pi join patent_us p on pi.patent_id=p.id
 join location_us l on pi.location_id=l.id
 join pc2 pc on pi.patent_id=pc.patent_id;
-
--- need to get year from the date
 
 
 -- add assignee_id to merged
@@ -53,7 +46,7 @@ where year between '1996' and '2020'
 order by inventor_id,patent_id;
 ;
 
---add 0 and 1 for moves 
+--add 0 and 1 for moves. SMove=State change , FMove=Firm change
 create table merged5 as
 select *, CASE 
 WHEN prev_state is not null and state<>prev_state and date<> prev_date then 1
@@ -76,7 +69,7 @@ ELSE 0
 END as 'MPeriod'
 from merged5;
 
---Add SMover and FMover: People who move at the moving period
+--Add SMover and FMover: People who move at the moving period. 
 create table merged7 as
 select *,CASE 
 WHEN MPeriod=1 and SMove=1 then 1
@@ -167,34 +160,5 @@ create table inventor6_copy as select inventor_id as inventoridb,year as yearb,t
 create table inventor7 as select a.*,b.tcb as prev_year_c from inventor6 a left join inventor6_copy b on a.inventor_id=b.inventoridb
 and a.prev_year_1=yearb+1-1;
 
-create table inventor8 as select a.*,b.tcb as prev_year_2_c from inventor7 a left join inventor6_copy b on a.inventor_id=b.inventoridb
-and a.prev_year_2=yearb+1-1;
 
-create table inventor9 as select a.*,b.tcb as fwd_year_1_c from inventor8 a left join inventor6_copy b on a.inventor_id=b.inventoridb
-and a.fwd_year_1=yearb+1-1;
-
-create table inventor10 as select a.*,b.tcb as fwd_year_2_c from inventor9 a left join inventor6_copy b on a.inventor_id=b.inventoridb
-and a.fwd_year_2=yearb+1-1;
-
-create table inventor11 as select a.*,b.tcb as fwd_year_3_c from inventor10 a left join inventor6_copy b on a.inventor_id=b.inventoridb
-and a.fwd_year_3=yearb+1-1;
-
-create table inventor12 as select a.*,b.tcb as fwd_year_4_c from inventor11 a left join inventor6_copy b on a.inventor_id=b.inventoridb
-and a.fwd_year_4=yearb+1-1;
-
-create table inventor13 as select a.*,b.tcb as fwd_year_5_c from inventor12 a left join inventor6_copy b on a.inventor_id=b.inventoridb
-and a.fwd_year_5=yearb+1-1;
-
-
-create table inventor14 as 
-SELECT inventor_id,year,total_citations,first_patent_year,experience,male,move_year,type,Smover,FMover,smoverXfmover,real_year,prev_year_1,prev_year_2,
-
-IFNULL(prev_year_c ,0) prev_year_tc, IFNULL(prev_year_2_c ,0) prev_year_2_tc ,IFNULL(fwd_year_1_c ,0) fwd_year_1_tc,
-IFNULL(fwd_year_2_c ,0) fwd_year_2_tc, IFNULL(fwd_year_3_c ,0) fwd_year_3_tc,IFNULL(fwd_year_4_c ,0) fwd_year_4_tc,IFNULL(fwd_year_5_c ,0) fwd_year_5_tc
-FROM inventor13;
-
-create table inventor15 as select *, (prev_year_tc+prev_year_2_tc)/2 as avg_prev2_tc, 
-(fwd_year_1_tc+fwd_year_2_tc+fwd_year_3_tc+fwd_year_4_tc+fwd_year_5_tc)/5 as avg_fwd5_tc
-from inventor14 
-where move_year between '2006' and '2015' or move_year is null;
 
