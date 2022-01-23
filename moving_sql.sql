@@ -3,7 +3,7 @@ create table location_us as
 select id,state from location 
 where country="US" and state is not null;
 
--- get patents published in US
+-- get only the needed patent columns
 create table patent_us as
 select id,type,date from patent;
 
